@@ -1,14 +1,22 @@
 name: schedule-ping
 
-# 这是个一次性诊断用的 workflow：只为回答一个问题 ——
+# 诊断用的探针：只回答一个问题 ——
 # 「这个仓库的 schedule 事件到底会不会被 GitHub 触发」。
-# 如果它能按时跑，说明 schedule 机制没坏，问题在 collect.yml；
-# 如果它也一动不动，说明是仓库级（创建时间太新/未注册）的问题。
-# 诊断完就删。
+#
+# 实测结论（2026-11-03）：不会。
+#   - 这个文件是全新加的、cron 是最简单的 */10，注册状态 active；
+#   - 从 15:07 建好到 15:53，跨过 15:10 / 15:20 / 15:30 / 15:40 / 15:50 五个窗口，0 次；
+#   - 同一时期 collect-endpoints 的 "3,33 * * * *" 也已连续 23 个窗口 0 次；
+#   - workflow_dispatch 与 push 触发都正常，timing 接口没有任何计费记录。
+# 所以不是 cron 写错、不是文件不在默认分支、不是 Actions 被禁用，
+# 而是这个仓库的 schedule 注册在 GitHub 一侧没生效（新仓库已知问题）。
+#
+# 保留它做金丝雀：一天跑一次，如果哪天它开始跑，说明 schedule 通了，
+# collect-endpoints 的每小时刷新也就跟着生效了。diagnostic 完成后可删。
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "7 4 * * *"
   workflow_dispatch: {}
 
 permissions:

@@ -1,6 +1,6 @@
 # hiwara-endpoints
 
-iwara CDN 边缘 IP 快照，每小时由 GitHub Actions 自动刷新。
+iwara CDN 边缘 IP 快照，每小时由 GitHub Actions 自动刷新（每小时第 3、33 分钟各一轮）。
 
 给 [Hiwara](https://github.com/shanmaomaoymmm/hiwara) 的 Android 客户端当「外置种子表」用。
 
@@ -72,6 +72,25 @@ yuko.iwara.tv     yukong.iwara.tv ...
 前三层是同一个文件的不同取法 —— 国内 `github.com` 和 `jsdelivr` 经常不通，但 `raw.githubusercontent.com` 目前实测可达（200 / 0.46s）。多备两个代理是因为这个可达性会变。
 
 一次 GET 只有几 KB，失败 4 秒超时放弃，后台线程做，不挡 UI。
+
+## 刷新节奏，以及踩过的两个坑
+
+`collect.yml` 的 cron 是 `3 * * * *` 与 `33 * * * *`（UTC），即每小时第 3、33 分钟各跑一轮 —— 两条是为了：一条被吞时另一条还在。每轮约 50 秒。
+
+**坑一：新仓库的 `schedule` 可能根本不触发。**
+这个仓库建好后的头 12 小时里，`schedule` 一次都没跑（换了 cron 分钟位、加了备用条、反复 push 都没用），但同期 `push` 与 `workflow_dispatch` 全部正常，workflow 也一直是 `active`。典型症状就是「状态正常、手动能跑、定时为 0」，社区讨论 #203822 / #185828 / #159649 都是同一现象。
+
+解法是**往默认分支推一个空提交**：
+
+```bash
+git commit --allow-empty -m "refresh schedule trigger"
+git push
+```
+
+推完第一轮 schedule 就正常跑了（2026-11-03 16:26Z）。以后若再出现「push 能跑、schedule 不跑」，第一件事就是补一个空提交。
+
+**坑二：采集期间别人往 main 推东西，会让 `git push` 被拒。**
+采集本身跑 50 秒，这期间若有人（或我用 contents API）改了仓库，收尾的裸 `git push` 会撞成 `! [rejected] main -> main (fetch first)`，整个 job 变红。现在「提交变更」步骤会保留本轮采集结果、重新拉最新 `main`、再推，最多重试 3 次。
 
 ## 本地跑
 

@@ -76,17 +76,43 @@ jobs:
               print(f"  {host:24} {','.join(info['ips'])}")
           PY
 
+      # 提交前要能容忍撞车：采集本身跑 50 秒，这段时间里别人（人或 CI）往 main
+      # 推了东西，裸 `git push` 就会 `! [rejected] main -> main (fetch first)`。
+      # 2026-11-03 17:21 的 run#9 就是这么失败的（当时正在用 contents API 改本文件）。
+      # 重试策略：push 失败就重新拉最新的 main，把本轮采集结果重新落上去再推，
+      # 始终以本轮数据为准（它是刚采的，比远端那份新）。
       - name: 提交变更
         run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           if git diff --quiet -- endpoints.json; then
             echo "本轮结果与上次一致，不提交"
             exit 0
           fi
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add endpoints.json
-          git commit -m "chore: 刷新 endpoints.json（$(date -u '+%Y-%m-%dT%H:%M:%SZ')）"
-          git push
+
+          cp endpoints.json "$RUNNER_TEMP/endpoints.json.new"
+
+          for attempt in 1 2 3; do
+            if [ "$attempt" -gt 1 ]; then
+              cp "$RUNNER_TEMP/endpoints.json.new" endpoints.json
+            fi
+            git add endpoints.json
+            git commit -m "chore: 刷新 endpoints.json（$(date -u '+%Y-%m-%dT%H:%M:%SZ')）" || true
+
+            if git push origin HEAD:main; then
+              echo "第 ${attempt} 次推送成功"
+              exit 0
+            fi
+
+            echo "第 ${attempt} 次推送失败，拉取最新 main 后重试"
+            git fetch origin main || true
+            git reset --hard origin/main || true
+            sleep $((attempt * 5))
+          done
+
+          echo "连续 3 次推送失败，放弃本轮（数据下一轮会重新采集）"
+          exit 1
 
       # 采集失败时让 job 变红（上面的 run 步骤已经会非 0 退出）。
       # 「不发坏数据」比「每小时都有提交」重要。

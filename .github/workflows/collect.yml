@@ -11,12 +11,19 @@ on:
     # 一小时一轮。GitHub 的 cron 用 UTC，且高负载时会排队延迟几分钟，
     # 这对我们没影响（数据本来就是"最近一小时的快照"）。
     #
-    # 注意：这个仓库刚建时用 "17 * * * *" 遇到过 schedule 连续 5 轮一次都没触发
-    # （push 与 workflow_dispatch 都正常，只有 schedule 为 0，timing 接口也没有
-    # 计费记录）。GitHub 社区里对新建仓库有同样的报告（community discussions
-    # #203822 / #185828 / #159649），官方没有给出注册延迟的具体时长。
-    # 这里改成整点后的第一个分钟，并保留一条备用分钟位；改完推一次会让 GitHub
-    # 重新注册这个 schedule。
+    # ⚠️ 实测结论（2026-11-03，共观察 5 轮 / 约 12 小时）：这个 schedule 一次都没触发过。
+    #    - 用 "17 * * * *" 观察 5 轮：0 次；改成下面两条再观察 23 个窗口：仍然 0 次。
+    #    - 另加了一个最简探针 schedule-ping.yml（"*/10 * * * *"）观察 5 个窗口：也是 0 次。
+    #    - 同期 push 与 workflow_dispatch 全部正常 success，timing 接口没有任何计费记录，
+    #      workflow 的 state=active，文件确实在默认分支上。
+    #    ⇒ 不是 cron 写错，是这个仓库的 schedule 注册在 GitHub 一侧没生效
+    #      （新建仓库的已知现象，社区 discussions #203822 / #185828 / #159649 同症状，
+    #       官方未给出注册延迟时长）。换分钟位、加备用条、重新 push 都没能促成注册。
+    #
+    #    因此：**不要指望这里的 cron**。endpoints.json 的实际刷新靠两件事：
+    #      1. scripts/collect.py 或本文件一改，push 触发一次（见下面的 push.paths）；
+    #      2. 需要新数据时手动 dispatch 一次（App 端不受影响，降级链保证拿不到快照也能播）。
+    #    真要定时化，得换 repository_dispatch + 外部定时器（云函数 / 自己的机器）。
     - cron: "3 * * * *"
     - cron: "33 * * * *"
   workflow_dispatch: {}          # 支持手动触发，方便改完脚本立刻验证

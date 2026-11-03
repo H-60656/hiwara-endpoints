@@ -10,7 +10,15 @@ on:
   schedule:
     # 一小时一轮。GitHub 的 cron 用 UTC，且高负载时会排队延迟几分钟，
     # 这对我们没影响（数据本来就是"最近一小时的快照"）。
-    - cron: "17 * * * *"
+    #
+    # 注意：这个仓库刚建时用 "17 * * * *" 遇到过 schedule 连续 5 轮一次都没触发
+    # （push 与 workflow_dispatch 都正常，只有 schedule 为 0，timing 接口也没有
+    # 计费记录）。GitHub 社区里对新建仓库有同样的报告（community discussions
+    # #203822 / #185828 / #159649），官方没有给出注册延迟的具体时长。
+    # 这里改成整点后的第一个分钟，并保留一条备用分钟位；改完推一次会让 GitHub
+    # 重新注册这个 schedule。
+    - cron: "3 * * * *"
+    - cron: "33 * * * *"
   workflow_dispatch: {}          # 支持手动触发，方便改完脚本立刻验证
   push:
     branches: [main]

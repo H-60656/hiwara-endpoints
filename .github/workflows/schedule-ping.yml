@@ -1,0 +1,25 @@
+name: schedule-ping
+
+# 这是个一次性诊断用的 workflow：只为回答一个问题 ——
+# 「这个仓库的 schedule 事件到底会不会被 GitHub 触发」。
+# 如果它能按时跑，说明 schedule 机制没坏，问题在 collect.yml；
+# 如果它也一动不动，说明是仓库级（创建时间太新/未注册）的问题。
+# 诊断完就删。
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 报一声到
+        run: |
+          echo "schedule ping at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          echo "event=${{ github.event_name }}"

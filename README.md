@@ -96,18 +96,39 @@ git push
 
 （推不上去时也可以走 Git Data API：`POST /git/commits` 用同一 tree + 当前 head 作 parent，再 `PATCH /git/refs/heads/main`。）
 
-但别指望它长期有效 —— 这个仓库推了两次，第二次就没恢复。要真定时，稳定做法是**外部定时器打 `workflow_dispatch`**：
-
-```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" \
-  https://api.github.com/repos/H-60656/hiwara-endpoints/actions/workflows/collect.yml/dispatches \
-  -d '{"ref":"main"}'
-```
-
-客户端不依赖这里的准时性 —— 降级链会把「快照是几小时前的」自动兜住。
+但别指望它长期有效 —— 这个仓库推了两次，第二次就没恢复。所以真正的定时**改用外部定时器**，见下一节。
 
 **坑二：采集期间别人往 main 推东西，会让 `git push` 被拒。**
 采集本身跑 50 秒，这期间若有人（或我用 contents API）改了仓库，收尾的裸 `git push` 会撞成 `! [rejected] main -> main (fetch first)`，整个 job 变红（2026-11-03 17:21 的 run#9 就是这么失败的）。现在「提交变更」步骤会保留本轮采集结果、重新拉最新 `main`、再推，最多重试 3 次。
+
+## 真正的定时：Cloudflare Worker 打 dispatch
+
+GitHub 的 `schedule` 靠不住，但 `workflow_dispatch` 一直很稳。所以定时搬到 Cloudflare 的免费 Worker 上：
+
+```
+Cloudflare cron（每小时 :03）
+        │
+        ▼
+Worker → POST /repos/H-60656/hiwara-endpoints/actions/workflows/collect.yml/dispatches
+        │
+        ▼
+collect.yml 跑一轮 → 刷新 endpoints.json → 提交
+```
+
+代码在 [`cron/cloudflare/`](cron/cloudflare/)，部署说明也在那里的 README。三条命令：
+
+```bash
+cd cron/cloudflare
+npm install
+npx wrangler secret put GITHUB_TOKEN    # fine-grained PAT，只给这个仓库 Actions: Read and write
+npx wrangler deploy
+```
+
+免费额度占用约 **0.024%**（每天 24 次请求 / 上限 100,000 次）。
+
+`collect.yml` 里的 cron **保留着** —— 万一哪天 GitHub 修好了，两条路都在跑也没坏处（采集脚本本身幂等，两次结果一样时不会产生新提交）。不想让它再跑就把 `schedule:` 整段删掉。
+
+客户端不依赖这里的准时性 —— 降级链会把「快照是几小时前的」自动兜住。
 
 ## 本地跑
 
@@ -125,6 +146,7 @@ python scripts/collect.py --check      # 只校验现有文件结构
 ## 已知限制
 
 - **快照最多滞后一小时**。新视频如果在两轮之间换了 CDN 主机，客户端这一轮可能不知道 —— 所以客户端仍保留 DoT 与邻居探测作为兜底，不是只靠这个文件。
+- **定时依赖 Cloudflare Worker**（`cron/cloudflare/`）。不部署它的话，数据只在有人 push 时刷新；GitHub 自己的 `schedule` 别指望。Worker 挂了就是快照变旧，客户端行为不受影响。
 - **上游结构变了脚本会失败**（退出码非 0，job 变红）。这是故意的：宁可失败，也不要发布一份空数据让客户端以为「所有主机都没了」。
 - **IP 会漂移**。跑在 `151.115.x` / `62.210.x` / `51.159.x` 这几段上的机器偶尔会换，`seen` 高说明常用，但不保证长期不变。
 - 本仓库只发布 DNS 快照，不代理任何流量，不含任何账号信息或视频内容。

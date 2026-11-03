@@ -1,0 +1,15 @@
+{
+  "name": "hiwara-endpoints-cron",
+  "version": "1.0.0",
+  "private": true,
+  "description": "用 Cloudflare Worker 的定时器触发 hiwara-endpoints 的 collect workflow",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

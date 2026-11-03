@@ -1,0 +1,31 @@
+#:schema node_modules/wrangler/config-schema.json
+
+name = "hiwara-endpoints-cron"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# 每小时第 3 分钟触发一次 → 调 GitHub 的 workflow_dispatch。
+# 与 collect.yml 里的 cron 分钟位（:03 / :33）对齐，两条路谁通用谁。
+# Cloudflare 的 cron 用 UTC，与 GitHub 一致，不用换算。
+#
+# 想更密就再加一条，但别太密：GitHub 对同一 workflow 的 dispatch 有频率限制，
+# 而且我们只需要「一小时一份快照」。
+[triggers]
+crons = ["3 * * * *"]
+
+# 免费额度（Workers Free）：
+#   - 每天 100,000 次请求
+#   - 每次 cron 触发算 1 次请求
+#   - 每小时 1 次 = 每天 24 次，占额度 0.024%
+# 所以这个用法在免费档里完全跑得动。
+
+# 变量走 secret，不写在文件里：
+#   npx wrangler secret put GITHUB_TOKEN
+#   npx wrangler secret put TRIGGER_KEY      （可选）
+#
+# 本地调试用 .dev.vars（已在 .gitignore 里）：
+#   GITHUB_TOKEN=ghp_xxx
+#   TRIGGER_KEY=随便一串
+
+[observability]
+enabled = true

@@ -5,3 +5,9 @@ venv/
 *.log
 .DS_Store
 Thumbs.db
+
+# Cloudflare Worker（cron/cloudflare）
+node_modules/
+.wrangler/
+.dev.vars
+.dev.vars.*

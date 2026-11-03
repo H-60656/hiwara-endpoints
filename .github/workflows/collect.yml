@@ -11,19 +11,15 @@ on:
     # 一小时一轮。GitHub 的 cron 用 UTC，且高负载时会排队延迟几分钟，
     # 这对我们没影响（数据本来就是"最近一小时的快照"）。
     #
-    # ⚠️ 实测结论（2026-11-03，共观察 5 轮 / 约 12 小时）：这个 schedule 一次都没触发过。
-    #    - 用 "17 * * * *" 观察 5 轮：0 次；改成下面两条再观察 23 个窗口：仍然 0 次。
-    #    - 另加了一个最简探针 schedule-ping.yml（"*/10 * * * *"）观察 5 个窗口：也是 0 次。
-    #    - 同期 push 与 workflow_dispatch 全部正常 success，timing 接口没有任何计费记录，
-    #      workflow 的 state=active，文件确实在默认分支上。
-    #    ⇒ 不是 cron 写错，是这个仓库的 schedule 注册在 GitHub 一侧没生效
-    #      （新建仓库的已知现象，社区 discussions #203822 / #185828 / #159649 同症状，
-    #       官方未给出注册延迟时长）。换分钟位、加备用条、重新 push 都没能促成注册。
+    # ⚠️ 建这个仓库时 schedule 曾长时间完全不触发（观察约 12 小时、5 次提交、23 个窗口，0 次），
+    #    典型症状是「workflow state=active、push 与 workflow_dispatch 都正常，只有 schedule 为 0」。
+    #    社区 reports：discussions #203822 / #185828 / #159649。官方没给注册延迟时长。
     #
-    #    因此：**不要指望这里的 cron**。endpoints.json 的实际刷新靠两件事：
-    #      1. scripts/collect.py 或本文件一改，push 触发一次（见下面的 push.paths）；
-    #      2. 需要新数据时手动 dispatch 一次（App 端不受影响，降级链保证拿不到快照也能播）。
-    #    真要定时化，得换 repository_dispatch + 外部定时器（云函数 / 自己的机器）。
+    #    2026-11-03 16:26Z 起恢复正常，之后每小时按 :03 / :33 正常触发。促成它的操作是
+    #    「往默认分支推一个空提交」（git commit --allow-empty），也就是强制 GitHub 重新同步
+    #    并注册 schedule。若以后再次出现「push 能跑、schedule 不跑」，第一件事就是补一个空提交。
+    #
+    #    App 端不依赖这里的准时性：降级链（快照 → DoT → 邻居 → 种子）保证拿不到快照也能播。
     - cron: "3 * * * *"
     - cron: "33 * * * *"
   workflow_dispatch: {}          # 支持手动触发，方便改完脚本立刻验证

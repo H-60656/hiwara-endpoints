@@ -75,22 +75,39 @@ yuko.iwara.tv     yukong.iwara.tv ...
 
 ## 刷新节奏，以及踩过的两个坑
 
-`collect.yml` 的 cron 是 `3 * * * *` 与 `33 * * * *`（UTC），即每小时第 3、33 分钟各跑一轮 —— 两条是为了：一条被吞时另一条还在。每轮约 50 秒。
+设计意图：`collect.yml` 的 cron 是 `3 * * * *` 与 `33 * * * *`（UTC），即每小时第 3、33 分钟各跑一轮 —— 两条是为了：一条被吞时另一条还在。每轮约 50 秒。
 
-**坑一：新仓库的 `schedule` 可能根本不触发。**
-这个仓库建好后的头 12 小时里，`schedule` 一次都没跑（换了 cron 分钟位、加了备用条、反复 push 都没用），但同期 `push` 与 `workflow_dispatch` 全部正常，workflow 也一直是 `active`。典型症状就是「状态正常、手动能跑、定时为 0」，社区讨论 #203822 / #185828 / #159649 都是同一现象。
+实际状况：**这个仓库的 `schedule` 不可靠**。完整实测时间线（UTC 2026-11-03）：
 
-解法是**往默认分支推一个空提交**：
+| 时间 | 现象 |
+|---|---|
+| 03:27 建仓 → 16:25 | `schedule` **0 次**，但 push / workflow_dispatch 全正常，workflow 一直 `active` |
+| 16:29 推空提交 | **立刻恢复**：16:26、16:48 两轮 schedule 都 success |
+| 17:03 / 17:33 / 18:03 / 18:33 | 又全部没跑 |
+| 18:29 再推空提交 | 到 19:01 仍 0 轮，没再恢复 |
+
+**坑一：新仓库的 `schedule` 可能根本不触发，而且会反复。**
+症状是「状态正常、手动能跑、定时为 0」，社区讨论 #203822 / #185828 / #159649 都是同一现象。往默认分支推空提交能碰运气救回来一阵：
 
 ```bash
 git commit --allow-empty -m "refresh schedule trigger"
 git push
 ```
 
-推完第一轮 schedule 就正常跑了（2026-11-03 16:26Z）。以后若再出现「push 能跑、schedule 不跑」，第一件事就是补一个空提交。
+（推不上去时也可以走 Git Data API：`POST /git/commits` 用同一 tree + 当前 head 作 parent，再 `PATCH /git/refs/heads/main`。）
+
+但别指望它长期有效 —— 这个仓库推了两次，第二次就没恢复。要真定时，稳定做法是**外部定时器打 `workflow_dispatch`**：
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  https://api.github.com/repos/H-60656/hiwara-endpoints/actions/workflows/collect.yml/dispatches \
+  -d '{"ref":"main"}'
+```
+
+客户端不依赖这里的准时性 —— 降级链会把「快照是几小时前的」自动兜住。
 
 **坑二：采集期间别人往 main 推东西，会让 `git push` 被拒。**
-采集本身跑 50 秒，这期间若有人（或我用 contents API）改了仓库，收尾的裸 `git push` 会撞成 `! [rejected] main -> main (fetch first)`，整个 job 变红。现在「提交变更」步骤会保留本轮采集结果、重新拉最新 `main`、再推，最多重试 3 次。
+采集本身跑 50 秒，这期间若有人（或我用 contents API）改了仓库，收尾的裸 `git push` 会撞成 `! [rejected] main -> main (fetch first)`，整个 job 变红（2026-11-03 17:21 的 run#9 就是这么失败的）。现在「提交变更」步骤会保留本轮采集结果、重新拉最新 `main`、再推，最多重试 3 次。
 
 ## 本地跑
 

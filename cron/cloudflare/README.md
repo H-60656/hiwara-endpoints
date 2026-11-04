@@ -2,7 +2,8 @@
 
 这个仓库自己的 `schedule` 事件不可靠 —— 实测记录见根目录 `README.md` 的
 「刷新节奏」一节：建仓头 12 小时跑 0 次，推空提交救回来两轮，之后又全停，
-再推一次也没恢复。`push` 和 `workflow_dispatch` 始终正常。
+再推一次也没恢复；后来又零零散散自己跑了几轮，时间点也没规律。
+`push` 和 `workflow_dispatch` 始终正常。
 
 所以真正的定时换到这里：**Cloudflare Worker 的 cron 打 GitHub 的 `workflow_dispatch`**。
 Cloudflare 的定时器是它自己一侧的，不看 GitHub 的调度器脸色。
@@ -66,6 +67,65 @@ npx wrangler tail
 
 再去 <https://github.com/H-60656/hiwara-endpoints/actions> 确认多了一条
 `workflow_dispatch` 的 run。
+
+## 部署后一定会踩的两个坑（实测）
+
+### 坑一：本地访问不了 `*.workers.dev`，但 Worker 其实是好的
+
+症状：`curl` 报 `无法连接到远程服务器`，浏览器打不开
+`https://hiwara-endpoints-cron.<子域>.workers.dev`，超时 20 秒。
+
+原因不是 Worker 没部署成功，而是**本地网络在 TLS 握手的 SNI 层就把
+`*.workers.dev` 掐了**。用同一个 Cloudflare 边缘 IP 只换 SNI 就能看出来：
+
+| 目标 IP | 握手里的 SNI | 结果 |
+|---|---|---|
+| `104.20.28.232` | `api.iwara.tv` | ✅ TLSv1.3，0.5 s |
+| `104.20.28.232` | `hiwara-endpoints-cron.<子域>.workers.dev` | ❌ `ConnectionResetError` |
+| `104.21.41.200` | `example.com` | ✅ TLSv1.3，0.42 s |
+| `104.21.41.200` | `hiwara-endpoints-cron.<子域>.workers.dev` | ❌ `ConnectionResetError` |
+| `104.21.41.200` | `workers.dev` | ❌ `ConnectionResetError` |
+
+换成 TLS 1.2 / 1.3、关掉或改 ALPN、跳过证书校验，**结果全一样** —— 判据只有
+SNI 里那个域名。顺带一提，本地 DNS 对 `*.workers.dev` 也给的是污染地址
+（`199.16.156.38`、`108.160.167.158` 之类），真值要用 DoT 查
+（`104.21.41.200` / `172.67.192.74`），但**钉了真 IP 照样连不上**，
+所以这不是 DNS 的问题。
+
+**这不影响功能。** cron 是 Cloudflare 那边到点自己执行的，也是 Cloudflare
+那边去调 `api.github.com`，跟你本机能不能打开 workers.dev 一点关系都没有。
+只有**手动**验 `/run` 时才需要绕一下：
+
+```bash
+# 走本机代理（端口按自己的改）
+curl -sS -k -m 25 --proxy http://127.0.0.1:7897 \
+  "https://hiwara-endpoints-cron.<子域>.workers.dev/run?key=<TRIGGER_KEY>"
+```
+
+能拿到 `{"ok":true,"status":204,...}` 就说明 Worker 完全正常。
+
+### 坑二：`/run` 回 502，`Resource not accessible by personal access token`
+
+```json
+{
+  "ok": false,
+  "status": 403,
+  "detail": "GitHub 回了 403：{\"message\":\"Resource not accessible by personal access token\",\n\"documentation_url\":\"https://docs.github.com/rest/actions/workflows#create-a-workflow-dispatch-event\"}"
+}
+```
+
+这不是 Worker 写错了，是 **fine-grained PAT 少了 `Actions: Read and write`**。
+Worker 只是如实把 GitHub 的 403 转成了 502。
+
+修法：回 <https://github.com/settings/personal-access-tokens> 打开那枚 token →
+`Repository permissions` → **Actions 改成 `Read and write`** → `Save`。
+
+**改完不用重新 `wrangler deploy`，也不用重新 `secret put`** —— secret 里的
+token 字符串没变，权限是 GitHub 服务端每次请求时重新算的。改完直接再打一次
+`/run` 即可。
+
+> 用 classic token（`gho_…` / `ghp_…`）也能通，只要勾了 `workflow` scope。
+> 但那样 token 对**整个账号**有权，泄漏面大，所以还是推荐 fine-grained。
 
 ## 免费额度
 

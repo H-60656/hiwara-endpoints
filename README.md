@@ -85,6 +85,9 @@ yuko.iwara.tv     yukong.iwara.tv ...
 | 16:29 推空提交 | **立刻恢复**：16:26、16:48 两轮 schedule 都 success |
 | 17:03 / 17:33 / 18:03 / 18:33 | 又全部没跑 |
 | 18:29 再推空提交 | 到 19:01 仍 0 轮，没再恢复 |
+| 19:01 → 次日 02:52 | 自己又零星跑了 4 轮（21:53、22:11、02:34、02:52），**时间点完全不按 cron 的 :03 / :33** |
+
+截至 2026-11-04 02:52，`schedule` 累计 6 轮、全部 success，但**间隔毫无规律** —— 既可能一停几小时，也可能连跑两轮。这不是「坏了」也不是「好了」，是**不可依赖**。
 
 **坑一：新仓库的 `schedule` 可能根本不触发，而且会反复。**
 症状是「状态正常、手动能跑、定时为 0」，社区讨论 #203822 / #185828 / #159649 都是同一现象。往默认分支推空提交能碰运气救回来一阵：
@@ -129,6 +132,11 @@ npx wrangler deploy
 `collect.yml` 里的 cron **保留着** —— 万一哪天 GitHub 修好了，两条路都在跑也没坏处（采集脚本本身幂等，两次结果一样时不会产生新提交）。不想让它再跑就把 `schedule:` 整段删掉。
 
 客户端不依赖这里的准时性 —— 降级链会把「快照是几小时前的」自动兜住。
+
+部署完这两个坑几乎一定踩一次，已经写进 [`cron/cloudflare/README.md`](cron/cloudflare/README.md)：
+
+- **本机打不开 `*.workers.dev`**：本地网络在 TLS 握手的 SNI 层就掐掉了这个域名（换 IP、换 TLS 版本、关证书校验都没用，判据就是 SNI）。**不影响功能** —— cron 是 Cloudflare 那边跑、那边调 `api.github.com`；只有手动验 `/run` 时需要 `--proxy http://127.0.0.1:<你的代理端口>`。
+- **`/run` 回 502 且 detail 是 `Resource not accessible by personal access token`**：fine-grained PAT 少了 `Actions: Read and write`。改完权限**不用重新 deploy、也不用重新 secret put**，服务端每次现算。
 
 ## 本地跑
 

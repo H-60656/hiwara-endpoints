@@ -1,47 +1,41 @@
 {
   "api": {
     "api.iwara.tv": [
-      "172.66.170.170",
-      "104.20.28.232"
+      "104.20.28.232",
+      "172.66.170.170"
     ]
   },
-  "generated_at": "2026-11-25T04:04:18Z",
+  "generated_at": "2026-11-25T05:04:11Z",
   "hosts": {
     "acheron.iwara.tv": {
       "ips": [
         "151.115.90.2"
       ],
-      "seen": 6
-    },
-    "aiko.iwara.tv": {
-      "ips": [
-        "151.115.89.228"
-      ],
-      "seen": 2
+      "seen": 7
     },
     "asta.iwara.tv": {
       "ips": [
         "151.115.96.228"
       ],
-      "seen": 4
+      "seen": 1
     },
     "bailu.iwara.tv": {
       "ips": [
         "62.210.95.208"
       ],
-      "seen": 6
+      "seen": 1
     },
     "blade.iwara.tv": {
       "ips": [
         "151.115.97.14"
       ],
-      "seen": 9
+      "seen": 8
     },
     "bronya.iwara.tv": {
       "ips": [
         "151.115.97.15"
       ],
-      "seen": 8
+      "seen": 4
     },
     "camellya.iwara.tv": {
       "ips": [
@@ -55,29 +49,35 @@
       ],
       "seen": 7
     },
+    "firefly.iwara.tv": {
+      "ips": [
+        "151.115.89.180"
+      ],
+      "seen": 2
+    },
     "hanya.iwara.tv": {
       "ips": [
         "151.115.90.5"
       ],
-      "seen": 4
+      "seen": 5
     },
     "herta.iwara.tv": {
       "ips": [
         "151.115.90.4"
       ],
-      "seen": 3
+      "seen": 2
     },
     "himeko.iwara.tv": {
       "ips": [
         "62.210.173.23"
       ],
-      "seen": 1
+      "seen": 3
     },
     "hook.iwara.tv": {
       "ips": [
         "151.115.97.5"
       ],
-      "seen": 5
+      "seen": 8
     },
     "jade.iwara.tv": {
       "ips": [
@@ -95,31 +95,31 @@
       "ips": [
         "62.210.173.45"
       ],
-      "seen": 2
+      "seen": 3
     },
     "lynx.iwara.tv": {
       "ips": [
         "151.115.97.4"
       ],
-      "seen": 5
+      "seen": 3
     },
     "naja.iwara.tv": {
       "ips": [
         "51.159.14.209"
       ],
-      "seen": 9
+      "seen": 5
     },
     "pela.iwara.tv": {
       "ips": [
         "62.210.173.43"
       ],
-      "seen": 3
+      "seen": 1
     },
     "phoebe.iwara.tv": {
       "ips": [
         "51.159.223.152"
       ],
-      "seen": 4
+      "seen": 6
     },
     "robin.iwara.tv": {
       "ips": [
@@ -131,19 +131,19 @@
       "ips": [
         "51.159.223.77"
       ],
-      "seen": 7
+      "seen": 4
     },
     "sparkle.iwara.tv": {
       "ips": [
         "151.115.90.6"
       ],
-      "seen": 3
+      "seen": 1
     },
     "swan.iwara.tv": {
       "ips": [
         "51.158.63.130"
       ],
-      "seen": 4
+      "seen": 6
     },
     "topaz.iwara.tv": {
       "ips": [
@@ -155,31 +155,31 @@
       "ips": [
         "151.115.97.11"
       ],
-      "seen": 4
+      "seen": 5
     },
     "youhu.iwara.tv": {
       "ips": [
         "51.158.205.221"
       ],
-      "seen": 5
+      "seen": 7
     },
     "yuko.iwara.tv": {
       "ips": [
         "51.158.54.136"
       ],
-      "seen": 1
+      "seen": 5
     },
     "yukong.iwara.tv": {
       "ips": [
         "151.115.90.3"
       ],
-      "seen": 3
+      "seen": 6
     },
     "zani.iwara.tv": {
       "ips": [
         "51.158.205.223"
       ],
-      "seen": 3
+      "seen": 6
     }
   },
   "sampled_videos": 32,
